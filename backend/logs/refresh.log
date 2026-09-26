@@ -1,0 +1,193 @@
+
+=== ingest ===
+Refreshing stock lists from NSE...
+  nse: 2558 stocks, 0 added, 0 removed
+  nifty100: 100 stocks, 0 added, 0 removed
+Downloading 6mo of daily prices for 2558 stocks...
+  500/2558
+  1000/2558
+  1500/2558
+  2000/2558
+  2500/2558
+  2558/2558
+
+Done: 2558 stocks with data, 0 with none
+Removed 2217 rows older than 6 months
+In DB: 2559 stocks, 290491 rows, 2026-03-25 -> 2026-09-25
+(129s)
+
+=== build_features ===
+Loaded 290491 price rows for 2559 stocks
+Wrote 171367 rows x 34 features to stock_features
+Dates: 2026-06-10 -> 2026-09-25
+Rows per stock: min 2 (LASERPOWER.NS), median 76, max 76
+(75s)
+
+=== build_dataset ===
+Wrote 159955 rows to ml_dataset
+
+  2281 stocks, 71 dates, 2026-06-10 -> 2026-09-18
+  target_ret_1d         159955 rows,  71 dates
+  target_ret_5d         159955 rows,  71 dates
+  target_high_1d        159955 rows,  71 dates
+  target_high_5d        159955 rows,  71 dates
+  target_high_20d       125820 rows,  56 dates
+  target_vol_20d        125820 rows,  56 dates
+  target_hit_5pct_5d    159955 rows,  71 dates
+  target_hit_5pct_20d   125820 rows,  56 dates
+
+Targets (% move from today's close):
+                  mean   10%   50%    90%
+target_ret_1d     0.10 -2.48 -0.11   2.94
+target_ret_5d     0.44 -5.28 -0.29   6.96
+target_high_1d    2.28  0.20  1.71   4.97
+target_high_5d    5.21  0.76  3.59  11.48
+target_high_20d  10.98  1.58  7.40  24.59
+target_vol_20d    2.29  1.22  2.07   3.64
+(80s)
+
+=== train_model ===
+2281 stocks
+
+target_ret_1d  (741 trees; trained on 52 dates, tested on 18 dates 2026-08-25 -> 2026-09-18)
+  MAE 1.827% vs baseline 1.810% (-0.9%)
+  daily top 10 averaged +2.27% vs all stocks -0.02%
+  direction accuracy 48.0%
+  rank IC +0.096
+  top features: mkt_ret_1d, mkt_ret_20d, mkt_breadth_20, stoch_k_14, mkt_volatility_20d
+
+target_ret_5d  (526 trees; trained on 48 dates, tested on 18 dates 2026-08-25 -> 2026-09-18)
+  MAE 4.216% vs baseline 4.227% (+0.3%)
+  daily top 10 averaged +5.19% vs all stocks -0.04%
+  direction accuracy 47.2%
+  rank IC +0.074
+  top features: mkt_breadth_20, mkt_volatility_20d, mkt_ret_1d, mkt_ret_20d, range_pct
+
+target_high_1d  (1999 trees; trained on 52 dates, tested on 18 dates 2026-08-25 -> 2026-09-18)
+  MAE 1.446% vs baseline 1.589% (+9.0%)
+  daily top 10 averaged +7.38% vs all stocks +2.20%
+  actual high reached prediction 44.2% of the time (baseline 46.8%)
+  rank IC +0.397
+  top features: atr_14, range_pct, mkt_ret_1d, mkt_ret_20d, mkt_breadth_20
+
+target_high_5d  (2000 trees; trained on 48 dates, tested on 18 dates 2026-08-25 -> 2026-09-18)
+  MAE 3.268% vs baseline 3.530% (+7.4%)
+  daily top 10 averaged +14.56% vs all stocks +5.01%
+  actual high reached prediction 46.1% of the time (baseline 45.4%)
+  rank IC +0.368
+  top features: atr_14, mkt_ret_1d, mkt_breadth_20, mkt_volatility_20d, range_pct
+
+target_high_20d  (1111 trees; trained on 22 dates, tested on 14 dates 2026-08-10 -> 2026-08-27)
+  MAE 7.677% vs baseline 7.654% (-0.3%)
+  daily top 10 averaged +13.67% vs all stocks +10.46%
+  actual high reached prediction 37.7% of the time (baseline 43.2%)
+  rank IC +0.288
+  top features: mkt_ret_20d, mkt_volatility_20d, atr_14, ret_40d, mkt_breadth_20
+
+target_vol_20d  (178 trees; trained on 22 dates, tested on 14 dates 2026-08-10 -> 2026-08-27)
+  MAE 0.689% vs baseline 0.830% (+17.0%)
+  daily top 10 averaged +4.08% vs all stocks +2.30%
+  vs 'last 20 days' forecast: MAE 0.874% (+21.2%)
+  rank IC +0.549
+  top features: atr_14, dist_low_40, volatility_20d, dist_sma_50, macd
+
+target_hit_5pct_5d  (608 trees; trained on 48 dates, tested on 18 dates 2026-08-25 -> 2026-09-18)
+  AUC 0.694 | log loss 0.5857 vs baseline 0.6398
+  mean predicted prob 36.5% (calibrated 33.4%) vs actual 33.4%
+  hit rate of daily top 10: 77.2%
+  rank IC +0.292
+  top features: mkt_ret_1d, atr_14, mkt_breadth_20, mkt_ret_20d, range_pct
+
+target_hit_5pct_20d  (314 trees; trained on 22 dates, tested on 14 dates 2026-08-10 -> 2026-08-27)
+  AUC 0.598 | log loss 0.7267 vs baseline 0.6950
+  mean predicted prob 73.3% (calibrated 58.1%) vs actual 58.1%
+  hit rate of daily top 10: 74.3%
+  rank IC +0.207
+  top features: mkt_ret_20d, mkt_volatility_20d, mkt_ret_1d, atr_14, mkt_breadth_20
+
+Saved models + metrics.json to /Users/Chandu/Desktop/indian-ai-stock/models/xgb
+(66s)
+
+=== predict ===
+Predictions from close of 2026-09-25 (2278 stocks)
+
+Empty DataFrame
+Columns: [stock, price, 1d %, 1w %, 1d high, 1d high %, 1w high, 1w high %, P(+5% in 1w)]
+Index: []
+
+1d/1w %: expected change in closing price
+high: median forecast of the intraday high (~50% chance of reaching it)
+P(+5% in 1w): chance the price touches +5% within 5 trading days
+(3s)
+
+=== ingest_fundamentals ===
+Fetching fundamentals for 2558 stocks...
+  2557 cached (< 7 days old), fetching 1
+  1/1
+
+Coverage (% of stocks with a value):
+sector               93.0
+industry             93.0
+long_name           100.0
+market_cap           89.0
+pe                   80.0
+forward_pe           40.0
+pb                   91.0
+roe                  89.0
+profit_margin        93.0
+operating_margin     93.0
+revenue_growth       90.0
+earnings_growth      73.0
+debt_to_equity       84.0
+dividend_yield       50.0
+beta                 84.0
+book_value           91.0
+eps                  93.0
+
+Top 5 by fundamental score:
+       symbol                 sector  fundamental_score
+    AQYLON.NS Communication Services               94.9
+       SIL.NS      Consumer Cyclical               93.7
+MOTOGENFIN.NS            Real Estate               93.4
+ KIRIINDUS.NS        Basic Materials               88.8
+    GESHIP.NS            Industrials               86.7
+(3s)
+
+=== ingest_news ===
+Fetching news for 2558 stocks + market feeds...
+Fetched 13531 article-stock pairs (13461 stock, 70 market); 4678 new, 0 older than 90 days removed; using the last 5 days
+Sentiment: 2357 ruled out locally (company not named), 2257 scored in 46 OpenAI calls
+Indexed 19023 articles into Chroma
+(657s)
+
+=== build_signals ===
+Signals for 2026-09-25: 2278 stocks
+signal
+NEUTRAL    1473
+AVOID       647
+WATCH       158 
+
+risk
+Low       760
+High      759
+Medium    759 
+
+Top 10 by composite score:
+    symbol   price  signal  composite_score  technical_score  momentum_score  fundamental_score   risk  upside_prob_20d
+    GESHIP 1497.20   WATCH            87.82            88.87           87.87              86.71    Low             0.42
+     CPCAP  153.93 NEUTRAL            86.48            94.93           96.95              67.57   High             0.56
+  PASUPTAC   75.87 NEUTRAL            86.35            92.10           93.90              73.05   High             0.59
+ARROWGREEN  905.80 NEUTRAL            84.22            92.06           95.24              81.58   High             0.60
+ KIRIINDUS  557.50 NEUTRAL            84.11            73.20           90.36              88.77   High             0.61
+  GRAUWEIL   88.02 NEUTRAL            83.48            96.00           93.40              61.04   High             0.60
+SHEKHAWATI   27.39 NEUTRAL            83.39            99.62           99.75              64.20   High             0.63
+VALIANTORG  410.45 NEUTRAL            83.31            93.82           97.73              58.40   High             0.61
+     MVGJL  224.38 NEUTRAL            83.29            93.74           96.94              59.19   High             0.64
+       NRL  161.70 NEUTRAL            83.09            97.13           97.90              54.25 Medium             0.52
+(2s)
+
+=== index_research ===
+Indexed 2281 research documents into Chroma
+(62s)
+
+Refresh complete
