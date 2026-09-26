@@ -181,3 +181,5 @@ Positions open at the latest close with the card's Target 2 and stop loss. They 
 | GET | `/api/model/performance` | Test-period model metrics |
 
 > Market data comes from Yahoo Finance via `yfinance` and is for research/education only.
+
+You need to run the sync at 16:45
