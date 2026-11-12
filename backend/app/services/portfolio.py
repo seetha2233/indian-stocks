@@ -14,12 +14,12 @@ from datetime import date
 
 import numpy as np
 import pandas as pd
-from sqlalchemy import text
+from sqlalchemy import bindparam, text
 from sqlalchemy.engine import Engine
 
 from app.services.backtest import ROUND_TRIP_COST
 from app.services.ingestion import normalize_symbol
-from app.services.signals import SIGNALS_TABLE
+from app.services.signals import MODEL_SIGNALS, SIGNALS_TABLE
 
 
 POSITIONS_TABLE = "paper_positions"
@@ -110,8 +110,12 @@ def open_position(
 
     signal = None
     if not card.empty:
-        target = target if target is not None else float(card["target_2"].iloc[0])
-        stop_loss = stop_loss if stop_loss is not None else float(card["stop_loss"].iloc[0])
+        # NEW / LIMITED cards have no target or stop; the position then
+        # stays open until closed by hand
+        if target is None and pd.notna(card["target_2"].iloc[0]):
+            target = float(card["target_2"].iloc[0])
+        if stop_loss is None and pd.notna(card["stop_loss"].iloc[0]):
+            stop_loss = float(card["stop_loss"].iloc[0])
         signal = card["signal"].iloc[0]
 
     with engine.begin() as conn:
@@ -277,8 +281,12 @@ def signal_tracker(engine: Engine) -> dict:
     """Forward returns after each recorded day's signals."""
 
     signals = pd.read_sql(
-        text(f"SELECT symbol, timestamp, signal, price FROM {SIGNALS_TABLE}"),
+        text(
+            f"SELECT symbol, timestamp, signal, price FROM {SIGNALS_TABLE} "
+            f"WHERE signal IN :signals"
+        ).bindparams(bindparam("signals", expanding=True)),
         engine,
+        params={"signals": list(MODEL_SIGNALS)},
         parse_dates=["timestamp"]
     )
 

@@ -1,6 +1,8 @@
 // Typed client for the FastAPI backend (proxied at /api in dev)
 
-export type Signal = 'WATCH' | 'NEUTRAL' | 'AVOID'
+// NEW / LIMITED: too little price history for the models; the card has
+// price, fundamentals and news, and null targets, risk and technical scores
+export type Signal = 'WATCH' | 'NEUTRAL' | 'AVOID' | 'NEW' | 'LIMITED'
 export type Risk = 'Low' | 'Medium' | 'High'
 
 export interface Card {
@@ -10,14 +12,14 @@ export interface Card {
   as_of: string
   price: number
   signal: Signal
-  entry_zone: [number, number]
-  target_1: number
-  target_2: number
-  stop_loss: number
-  risk_reward: number
-  upside_prob_20d: number
-  risk: Risk
-  annual_volatility: number
+  entry_zone: [number | null, number | null]
+  target_1: number | null
+  target_2: number | null
+  stop_loss: number | null
+  risk_reward: number | null
+  upside_prob_20d: number | null
+  risk: Risk | null
+  annual_volatility: number | null
   turnover_cr: number | null
   nifty100: boolean
   scores: {

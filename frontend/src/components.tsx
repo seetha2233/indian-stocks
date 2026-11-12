@@ -22,6 +22,8 @@ const SIGNAL_COLOR: Record<Signal, string> = {
   WATCH: 'var(--good)',
   NEUTRAL: 'var(--text-muted)',
   AVOID: 'var(--critical)',
+  NEW: 'var(--accent)',
+  LIMITED: 'var(--neutral-chip)',
 }
 
 export function SignalChip({ signal, large }: { signal: Signal; large?: boolean }) {
@@ -39,7 +41,8 @@ const RISK_COLOR: Record<Risk, string> = {
   High: 'var(--serious)',
 }
 
-export function RiskChip({ risk }: { risk: Risk }) {
+export function RiskChip({ risk }: { risk: Risk | null }) {
+  if (risk == null) return <span className="muted">—</span>
   return (
     <span className="chip">
       <span className="dot" style={{ background: RISK_COLOR[risk] }} />

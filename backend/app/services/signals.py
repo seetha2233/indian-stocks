@@ -8,6 +8,11 @@ What is validated and what isn't:
     all covered stocks today. They describe a stock; they are not forecasts.
   - The WATCH / NEUTRAL / AVOID rule combines those scores. It is a
     transparent heuristic and has not been shown to beat the market.
+
+Stocks that traded on the signal day but have too little history for the
+models (new listings, or a recent corporate action restarting the count)
+still get a limited card: price, fundamentals, news and liquidity, with
+signal NEW or LIMITED and no targets, risk or technical scores.
 """
 
 import json
@@ -17,10 +22,10 @@ import pandas as pd
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
-from app.services.features import FEATURES_TABLE
+from app.services.features import FEATURES_TABLE, MIN_HISTORY
 from app.services.fundamentals import load_fundamentals
 from app.services.news import news_scores
-from app.services.universe import load_nifty100, universe_table
+from app.services.universe import listing_dates, load_nifty100, universe_table
 
 
 SIGNALS_TABLE = "stock_signals"
@@ -55,6 +60,14 @@ WATCH_MIN_SCORE = 60
 # the same bar the backtest uses: thinner stocks can't be traded reliably
 MIN_TURNOVER_CR = 5
 AVOID_MAX_SCORE = 40
+
+# Signals from the models; the other two mark cards without model output
+MODEL_SIGNALS = ("WATCH", "NEUTRAL", "AVOID")
+NEW_LISTING = "NEW"
+LIMITED = "LIMITED"
+
+# A stock is NEW if NSE lists it at most this many days before its first bar
+LISTING_SLACK_DAYS = 10
 
 DISCLAIMER = (
     "Research output, not investment advice. Targets and probabilities are "
@@ -206,6 +219,125 @@ def _turnover(engine: Engine) -> pd.DataFrame:
     )
 
 
+def _limited_reasons(row: pd.Series) -> list[str]:
+    """Reasons for a card without model output."""
+
+    bars, first = int(row["bars"]), pd.Timestamp(row["first_day"])
+    days = f"{bars} trading day{'s' if bars != 1 else ''}"
+
+    if row["signal"] == NEW_LISTING:
+        listed = row["listed_on"] if pd.notna(row["listed_on"]) else first
+        reasons = [
+            f"New on the NSE main board (listed {listed:%d %b %Y}): "
+            f"{days} of prices so far",
+        ]
+        if bars > 1:
+            reasons.append(
+                f"{_pct(row['price'] / row['first_close'] - 1)} since its first "
+                f"close of Rs {row['first_close']:,.2f}"
+            )
+    elif bars <= MIN_HISTORY:
+        reasons = [
+            f"Rarely traded: only {days} with trades in the last 6 months "
+            f"(first on {first:%d %b %Y})"
+        ]
+    else:
+        reasons = [
+            "Too little clean price history for the models: a corporate action "
+            "or a one-day move of -40%/+50% restarts the count"
+        ]
+
+    reasons.append(
+        f"Signal, targets, stop loss, risk and technical scores need "
+        f"{MIN_HISTORY + 1} trading days (about 2.5 months) of prices; "
+        f"they appear once it has them"
+    )
+
+    if row["turnover_cr"] < MIN_TURNOVER_CR:
+        reasons.append(
+            f"Thinly traded: about Rs {row['turnover_cr']:.2f} crore a day"
+        )
+
+    if pd.notna(row.get("news_score")):
+        tone = (
+            "positive" if row["news_score"] >= 60 else
+            "negative" if row["news_score"] <= 40 else "mixed"
+        )
+        reasons.append(
+            f"News tone {tone} ({row['news_score']:.0f}/100 from "
+            f"{row['news_count']} relevant articles in 5 days)"
+        )
+
+    return reasons
+
+
+def _limited_cards(
+    engine: Engine,
+    day: pd.Timestamp,
+    covered: set[str],
+    fundamentals: pd.DataFrame,
+    news: pd.DataFrame,
+) -> pd.DataFrame:
+    """Cards for stocks that traded on `day` but have no feature row.
+
+    These are mostly new listings (fewer than MIN_HISTORY + 1 days of
+    prices); the rest lost their history to a corporate-action break.
+    """
+
+    df = pd.read_sql(
+        text(
+            "WITH s AS (SELECT symbol, count(*) AS bars, min(timestamp) AS first_day "
+            "FROM stock_prices GROUP BY symbol) "
+            "SELECT p.symbol, p.timestamp, p.close AS price, s.bars, s.first_day, "
+            "f.close AS first_close FROM stock_prices p "
+            "JOIN s ON s.symbol = p.symbol "
+            "JOIN stock_prices f ON f.symbol = p.symbol AND f.timestamp = s.first_day "
+            "WHERE p.timestamp = :ts"
+        ),
+        engine,
+        params={"ts": pd.Timestamp(day).to_pydatetime()},
+        parse_dates=["timestamp", "first_day"]
+    )
+
+    df = df[~df["symbol"].isin(covered)].reset_index(drop=True)
+
+    if df.empty:
+        return df
+
+    df = (
+        df.merge(
+            fundamentals[[
+                "symbol", "long_name", "sector", "industry", "market_cap",
+                "pe", "pb", "roe", "valuation_score", "quality_score",
+                "growth_score", "leverage_score", "fundamental_score",
+            ]],
+            on="symbol",
+            how="left"
+        )
+        .merge(news, on="symbol", how="left")
+        .merge(_turnover(engine), on="symbol", how="left")
+    )
+
+    df["news_score"] = df["news_score"].astype(float)
+    df["news_count"] = df["news_count"].fillna(0).astype(int)
+    df["turnover_cr"] = df["turnover_cr"].fillna(0.0)
+
+    # NEW only if NSE's listing date is about where its prices start;
+    # otherwise the short history is thin trading or a resumed stock
+    df["listed_on"] = df["symbol"].map(listing_dates())
+    new = (df["bars"] <= MIN_HISTORY) & (
+        df["listed_on"].isna()
+        | (df["listed_on"] >= df["first_day"] - pd.Timedelta(days=LISTING_SLACK_DAYS))
+    )
+    df["signal"] = np.where(new, NEW_LISTING, LIMITED)
+
+    df["reasons"] = [
+        json.dumps(_limited_reasons(row)) for _, row in df.iterrows()
+    ]
+
+    return df
+
+
 def build_signals(engine: Engine) -> pd.DataFrame:
 
     features = _latest(engine, FEATURES_TABLE)
@@ -270,12 +402,6 @@ def build_signals(engine: Engine) -> pd.DataFrame:
     df = df.merge(_turnover(engine), on="symbol", how="left")
     df["turnover_cr"] = df["turnover_cr"].fillna(0.0)
 
-    nifty100 = {f"{s}.NS" for s in load_nifty100()}
-    df["nifty100"] = df["symbol"].isin(nifty100)
-
-    names = universe_table("nse").set_index("symbol")["long_name"]
-    df["long_name"] = df["long_name"].fillna(df["symbol"].map(names))
-
     df["signal"] = df.apply(_signal, axis=1)
 
     df["ret_20d_rank"] = df["ret_20d"].rank(ascending=False, method="min")
@@ -284,6 +410,19 @@ def build_signals(engine: Engine) -> pd.DataFrame:
     df["reasons"] = [
         json.dumps(_reasons(row, df)) for _, row in df.iterrows()
     ]
+
+    limited = _limited_cards(
+        engine, df["timestamp"].iloc[0], set(df["symbol"]), fundamentals, news
+    )
+
+    if not limited.empty:
+        df = pd.concat([df, limited], ignore_index=True)
+
+    nifty100 = {f"{s}.NS" for s in load_nifty100()}
+    df["nifty100"] = df["symbol"].isin(nifty100)
+
+    names = universe_table("nse").set_index("symbol")["long_name"]
+    df["long_name"] = df["long_name"].fillna(df["symbol"].map(names))
 
     columns = [
         "symbol", "timestamp", "long_name", "sector", "industry",
@@ -327,7 +466,7 @@ def card(row: dict) -> dict:
         "stop_loss": r(row["stop_loss"]),
         "risk_reward": r(row["risk_reward"]),
         "upside_prob_20d": r(row["upside_prob_20d"], 3),
-        "risk": row["risk"],
+        "risk": t(row["risk"]),
         "annual_volatility": r(row["annual_vol"], 3),
         "turnover_cr": r(row.get("turnover_cr"), 2),
         "nifty100": bool(row.get("nifty100")) if row.get("nifty100") is not None else False,

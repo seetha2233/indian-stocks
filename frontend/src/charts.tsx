@@ -99,7 +99,7 @@ export function PriceChart({ bars, card }: { bars: PriceBar[]; card?: Card }) {
         { y: card.target_1, label: `T1 ${fmt.inr(card.target_1)}` },
         { y: card.entry_zone[0], label: `Entry ${fmt.inr(card.entry_zone[0])}` },
         { y: card.stop_loss, label: `Stop ${fmt.inr(card.stop_loss)}` },
-      ]
+      ].filter((l): l is { y: number; label: string } => l.y != null)
     : []
 
   const values = bars.flatMap((b) => [b.low, b.high]).concat(levels.map((l) => l.y))
@@ -120,7 +120,7 @@ export function PriceChart({ bars, card }: { bars: PriceBar[]; card?: Card }) {
                 {s.name}
               </span>
             ))}
-            {card && (
+            {levels.length > 0 && (
               <span>
                 <span className="sw dash" />
                 Card levels (targets, entry, stop)

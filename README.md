@@ -135,6 +135,8 @@ One card per stock in `stock_signals`:
 | Fundamental | Sector-relative percentiles of valuation, quality, growth and leverage (today's snapshot, so not backtestable) |
 | News | Empty until the news service is built |
 
+Stocks that traded today but have fewer than 51 trading days of usable prices (the features' 50-day lookback) still get a limited card, so new listings show up right away: signal **NEW** when NSE's listing date is about where their prices start, otherwise **LIMITED** (rarely traded, or history cut by a corporate action). These cards carry price, fundamentals, news and liquidity; entry zone, targets, stop, risk and technical/momentum scores stay empty until there is enough history. They are left out of the signal tracker.
+
 API: `GET /api/signals` (filters: `signal`, `risk`, `sector`, `sort`, `limit`), `GET /api/signals/{symbol}`, `GET /api/model/performance`.
 
 ## News, sentiment and research (RAG)
