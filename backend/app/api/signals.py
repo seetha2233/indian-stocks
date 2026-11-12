@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+from typing import Literal
 
 import pandas as pd
 from fastapi import APIRouter, HTTPException, Query
@@ -47,7 +48,7 @@ def list_signals(
     risk: str | None = Query(None, description="Low | Medium | High"),
     sector: str | None = None,
     nifty100: bool = False,
-    sort: str = Query("composite", enum=list(SORTABLE)),
+    sort: Literal[tuple(SORTABLE)] = "composite",  # type: ignore[valid-type]
     limit: int = Query(5000, ge=1, le=5000),
     compact: bool = Query(False, description="Only the fields the screener table needs"),
 ):
