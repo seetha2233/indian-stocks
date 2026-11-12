@@ -23,3 +23,6 @@ xgboost
 redis
 
 python-multipart
+chromadb
+feedparser
+openai

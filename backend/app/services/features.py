@@ -98,7 +98,13 @@ def assign_segments(df: pd.DataFrame) -> pd.DataFrame:
     ret = df.groupby("symbol")["close"].pct_change()
     brk = (ret <= BREAK_DOWN) | (ret >= BREAK_UP)
 
-    events = pd.read_csv(CORPORATE_ACTIONS_CSV, parse_dates=["date"])
+    # data/ is gitignored, so a fresh clone has no curated list; fall back
+    # to the one-day-move breaks alone
+    if CORPORATE_ACTIONS_CSV.exists():
+        events = pd.read_csv(CORPORATE_ACTIONS_CSV, parse_dates=["date"])
+    else:
+        print(f"  {CORPORATE_ACTIONS_CSV.name} not found; using only one-day-move breaks")
+        events = pd.DataFrame(columns=["symbol", "date"])
 
     for event in events.itertuples():
         brk |= (df["symbol"] == event.symbol) & (df["timestamp"] == event.date)

@@ -8,3 +8,4 @@ data/*
 models/*
 !models/.gitkeep
 .ipynb_checkpoints/
+*.env
