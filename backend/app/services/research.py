@@ -100,6 +100,18 @@ def _card_text(c: dict) -> str:
     def pct(x):
         return "n/a" if x is None else f"{x * 100:.0f}%"
 
+    if c["target_1"] is None:
+        # NEW / LIMITED card: no model output yet
+        return "\n".join([
+            f"{c['symbol']} ({c['name']}, {c['sector']}) stock card as of {c['as_of']}.",
+            f"Price Rs {c['price']}. AI signal: {c['signal']} (no model signal, "
+            f"targets, stop loss or risk level yet).",
+            f"Scores out of 100 vs all covered NSE stocks: fundamental "
+            f"{s['fundamental']}, news {s['news'] if s['news'] is not None else 'n/a'}.",
+            f"Fundamentals: P/E {f['pe']}, P/B {f['pb']}, ROE {pct(f['roe'])}.",
+            "Reasons: " + " ".join(f"- {w}." for w in c["why"]),
+        ])
+
     lines = [
         f"{c['symbol']} ({c['name']}, {c['sector']}) stock card as of {c['as_of']}.",
         f"Price Rs {c['price']}. AI signal: {c['signal']}.",

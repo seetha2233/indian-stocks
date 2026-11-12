@@ -38,26 +38,34 @@ function CardPanel({ c }: { c: Card }) {
 
       <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '12px 0' }} />
 
-      <dl className="kv">
-        <dt title={d.entry_zone}>Entry zone</dt>
-        <dd>
-          {fmt.inr(c.entry_zone[0])} – {fmt.inr(c.entry_zone[1])}
-        </dd>
-        <dt title={d.target_1}>Target 1 (1-week)</dt>
-        <dd>
-          {fmt.inr(c.target_1)} <span className="muted small">({fmt.signedFrac(c.target_1 / c.price - 1)})</span>
-        </dd>
-        <dt title={d.target_2}>Target 2 (20-day)</dt>
-        <dd>
-          {fmt.inr(c.target_2)} <span className="muted small">({fmt.signedFrac(c.target_2 / c.price - 1)})</span>
-        </dd>
-        <dt title={d.stop_loss}>Stop loss</dt>
-        <dd>
-          {fmt.inr(c.stop_loss)} <span className="muted small">({fmt.signedFrac(c.stop_loss / c.price - 1)})</span>
-        </dd>
-        <dt>Risk / reward</dt>
-        <dd>{fmt.num(c.risk_reward)}</dd>
-      </dl>
+      {c.target_1 == null || c.target_2 == null || c.stop_loss == null ? (
+        <p className="small secondary" style={{ margin: 0 }}>
+          {c.signal === 'NEW' ? 'Recently listed: ' : 'Short price history: '}
+          the entry zone, targets, stop loss, risk level and technical scores need about 2.5 months (51 trading days) of
+          prices. Until then this card shows price, fundamentals and news.
+        </p>
+      ) : (
+        <dl className="kv">
+          <dt title={d.entry_zone}>Entry zone</dt>
+          <dd>
+            {fmt.inr(c.entry_zone[0])} – {fmt.inr(c.entry_zone[1])}
+          </dd>
+          <dt title={d.target_1}>Target 1 (1-week)</dt>
+          <dd>
+            {fmt.inr(c.target_1)} <span className="muted small">({fmt.signedFrac(c.target_1 / c.price - 1)})</span>
+          </dd>
+          <dt title={d.target_2}>Target 2 (20-day)</dt>
+          <dd>
+            {fmt.inr(c.target_2)} <span className="muted small">({fmt.signedFrac(c.target_2 / c.price - 1)})</span>
+          </dd>
+          <dt title={d.stop_loss}>Stop loss</dt>
+          <dd>
+            {fmt.inr(c.stop_loss)} <span className="muted small">({fmt.signedFrac(c.stop_loss / c.price - 1)})</span>
+          </dd>
+          <dt>Risk / reward</dt>
+          <dd>{fmt.num(c.risk_reward)}</dd>
+        </dl>
+      )}
 
       <hr style={{ border: 0, borderTop: '1px solid var(--border)', margin: '12px 0' }} />
 
@@ -69,7 +77,7 @@ function CardPanel({ c }: { c: Card }) {
           <RiskChip risk={c.risk} />
         </dd>
         <dt>Predicted volatility</dt>
-        <dd>{fmt.frac(c.annual_volatility)} a year</dd>
+        <dd>{c.annual_volatility == null ? '—' : `${fmt.frac(c.annual_volatility)} a year`}</dd>
         <dt title={d.liquidity}>Traded per day</dt>
         <dd>
           {fmt.crore(c.turnover_cr)}
@@ -146,7 +154,11 @@ function AddToPortfolio({ c }: { c: Card }) {
     setStatus(null)
     try {
       await api.addPosition({ symbol: c.symbol, quantity: qty })
-      setStatus(`Added ${qty} × ${c.symbol} at ${fmt.inr(c.price)} with target ${fmt.inr(c.target_2)} and stop ${fmt.inr(c.stop_loss)}.`)
+      setStatus(
+        c.target_2 == null || c.stop_loss == null
+          ? `Added ${qty} × ${c.symbol} at ${fmt.inr(c.price)} with no target or stop (this card has none yet).`
+          : `Added ${qty} × ${c.symbol} at ${fmt.inr(c.price)} with target ${fmt.inr(c.target_2)} and stop ${fmt.inr(c.stop_loss)}.`,
+      )
     } catch (e) {
       setStatus(`Couldn't add: ${(e as Error).message}`)
     } finally {

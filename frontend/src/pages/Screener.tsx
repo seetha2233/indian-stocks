@@ -117,6 +117,8 @@ export default function Screener() {
               <option>WATCH</option>
               <option>NEUTRAL</option>
               <option>AVOID</option>
+              <option value="NEW">NEW (recent listing)</option>
+              <option value="LIMITED">LIMITED (short history)</option>
             </select>
           </div>
           <div className="field">

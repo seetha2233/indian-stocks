@@ -166,3 +166,15 @@ def universe_table(name: str) -> pd.DataFrame:
     out["symbol"] = out["symbol"] + ".NS"
 
     return out.reset_index(drop=True)
+
+
+def listing_dates() -> pd.Series:
+    """NSE main-board listing date per symbol (with .NS)."""
+
+    df = _read_nse(NSE_EQUITY_CSV)
+
+    return pd.Series(
+        pd.to_datetime(df["DATE OF LISTING"].str.strip(), format="%d-%b-%Y", errors="coerce").values,
+        index=df["SYMBOL"].str.strip() + ".NS",
+        name="listed_on",
+    )
